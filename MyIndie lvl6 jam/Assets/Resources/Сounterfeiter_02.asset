@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 12932cb8aef694744893d6775767b43a, type: 3}
+  m_Name: "\u0421ounterfeiter_02"
+  m_EditorClassIdentifier: 
+  executionReasonText: 'Accusation
+
+
+
+    The Executioner, the public prosecutor
+    of the Criminal Revolutionary Tribunal, established in Paris by a Special Decree
+    in 1793,
+
+
+
+    Reports that the accused is guilty of counterfeiting currency
+    and is sentenced to death by guillotine.
+
+'
+  spriteAt2: {fileID: 21300000, guid: 6f9b42e7438f3bf4ea5cd6dcd2b3ffc6, type: 3}
+  spriteAt1: {fileID: 21300000, guid: 81798c5eedf0bc443a79af90f3b03f16, type: 3}
+  spriteAt0: {fileID: 21300000, guid: 26636dc639109c1418e0dd72dada92df, type: 3}
