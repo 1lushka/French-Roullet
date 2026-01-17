@@ -2,19 +2,23 @@
 using DG.Tweening;
 using UnityEngine.SceneManagement;
 using System;
+using Mirror;
 
-public class TapePiece : MonoBehaviour
+public class TapePiece : NetworkBehaviour
 {
+    [Header("Health Settings")]
+    [SyncVar(hook = nameof(OnHealthChanged))]
     [SerializeField] private int health = 3;
+
     private int maxHealth;
 
     [Header("Rope Pieces")]
-    [SerializeField] private Transform[] ropePieces; // 🔹 два объекта верёвки
+    [SerializeField] private Transform[] ropePieces;
 
     [Header("Scale Settings")]
-    [SerializeField] private float minScaleY = 0.3f;        // 🔹 scale при здоровье = 0
-    [SerializeField] private float maxScaleY = 1f;          // 🔹 scale при здоровье = максимум
-    [SerializeField] private float scaleTweenDuration = 0.3f; // 🔹 время плавного изменения
+    [SerializeField] private float minScaleY = 0.3f;
+    [SerializeField] private float maxScaleY = 1f;
+    [SerializeField] private float scaleTweenDuration = 0.3f;
 
     [Header("Shake Settings")]
     [SerializeField] private float shakeDuration = 0.2f;
@@ -36,7 +40,6 @@ public class TapePiece : MonoBehaviour
     {
         maxHealth = health;
 
-        // 🔹 запоминаем исходные размеры каждой верёвки
         originalScales = new Vector3[ropePieces.Length];
         for (int i = 0; i < ropePieces.Length; i++)
         {
@@ -45,23 +48,41 @@ public class TapePiece : MonoBehaviour
         }
     }
 
+    // ---------------------------------------------------------------------
+    //                       SERVER: apply real damage
+    // ---------------------------------------------------------------------
+    [Server]
     public void TakeDamage(int damage)
     {
         if (Time.time - lastDamageTime < damageCooldown)
             return;
 
         lastDamageTime = Time.time;
-        health -= damage;
-        health = Mathf.Max(health, 0);
 
+        int newHealth = Mathf.Max(health - damage, 0);
+        health = newHealth; // Will sync to all clients → triggers hook
+    }
+
+    // ---------------------------------------------------------------------
+    //         HOOK — вызывается на всех клиентах при изменении здоровья
+    // ---------------------------------------------------------------------
+    private void OnHealthChanged(int oldValue, int newValue)
+    {
+        // Вызов события для RopesHealthManager
+        HealthChanged?.Invoke(this, newValue);
+
+        // Визуал клиенты видят только местно
         Shake();
         UpdateRopeScales();
-        HealthChanged?.Invoke(this, health);
-        if (health <= 0)
+
+        if (newValue <= 0)
             Detach();
     }
 
-    void Shake()
+    // ---------------------------------------------------------------------
+    //                        CLIENT VISUALS ONLY
+    // ---------------------------------------------------------------------
+    private void Shake()
     {
         shakeTween?.Kill();
         shakeTween = transform.DOShakePosition(
@@ -72,9 +93,9 @@ public class TapePiece : MonoBehaviour
         ).SetEase(Ease.OutQuad);
     }
 
-    void UpdateRopeScales()
+    private void UpdateRopeScales()
     {
-        float healthPercent = (float)health / maxHealth; // 1 → 0
+        float healthPercent = maxHealth > 0 ? (float)health / maxHealth : 0f;
         float targetScaleY = Mathf.Lerp(minScaleY, maxScaleY, healthPercent);
 
         for (int i = 0; i < ropePieces.Length; i++)
@@ -90,9 +111,10 @@ public class TapePiece : MonoBehaviour
         }
     }
 
-    void Detach()
+    private void Detach()
     {
         shakeTween?.Kill();
-        //SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+        // Здесь логика отрыва, если нужна
+        // Можно добавить RPC для спец. эффекта
     }
 }

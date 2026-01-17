@@ -1,7 +1,7 @@
-// RopesAttachOnDeath.cs
 using UnityEngine;
+using Mirror;
 
-public class RopesAttachOnDeath : MonoBehaviour
+public class RopesAttachOnDeath : NetworkBehaviour
 {
     [Header("Менеджер здоровья верёвок")]
     [SerializeField] private RopesHealthManager manager;
@@ -11,37 +11,58 @@ public class RopesAttachOnDeath : MonoBehaviour
     [SerializeField] private Transform rightAnchor;
 
     [Header("Как найти верёвки")]
-    [Tooltip("Если пусто и массив 'ropes' не задан, возьмём всех TapePiece в сцене.")]
     [SerializeField] private Transform ropesRoot;
     [SerializeField] private TapePiece[] ropes;
 
     [Header("Настройки прикрепления")]
-    [Tooltip("Сохранять мировые позицию/поворот/масштаб при SetParent.")]
     [SerializeField] private bool worldPositionStays = true;
-    [Tooltip("Если X ровно равен X разрушенной — отправлять направо (иначе налево).")]
     [SerializeField] private bool equalGoesRight = false;
 
     private bool _done;
 
-    [SerializeField] private Vector2 postZeroDelayRange = new Vector2(0.4f, 1.2f); // случайная задержка
-    [SerializeField] private float leftMoveSpeed = 2.5f;                            // скорость влево (м/с)
-    [SerializeField] private Animator deathAnimator;                                // аниматор, который дёргаем
-    [SerializeField] private string deathTrigger = "Death";                         // имя триггера
-    private bool _moveLeftActive;                                                   // флаг движения
+    [SerializeField] private Vector2 postZeroDelayRange = new Vector2(0.4f, 1.2f);
+    [SerializeField] private float leftMoveSpeed = 2.5f;
 
+    [Header("Анимация смерти")]
+    [SerializeField] private Animator deathAnimator;
+    [SerializeField] private string deathTrigger = "Death";
+
+    [Header("Аудио")]
     [SerializeField] private AudioSource DeathAudioSource;
-
     [SerializeField] private AudioClip giliotina;
-    [SerializeField] private AudioClip HeadCut;
+    [SerializeField] private AudioClip headCut;
 
+    private bool _moveLeftActive;
+
+    // ------------------------------------------------------------
+    //                     ЗВУКОВОЙ РЕЕСТР
+    // ------------------------------------------------------------
+    private enum SoundID : byte
+    {
+        HeadCut = 1,
+        Giliotina = 2
+    }
+
+    private AudioClip GetClipByID(SoundID id)
+    {
+        switch (id)
+        {
+            case SoundID.HeadCut: return headCut;
+            case SoundID.Giliotina: return giliotina;
+            default: return null;
+        }
+    }
+
+    // ------------------------------------------------------------
     private void Awake()
     {
-        if (manager == null) manager = FindFirstObjectByType<RopesHealthManager>();
+        if (manager == null)
+            manager = FindFirstObjectByType<RopesHealthManager>();
 
-        if ((ropes == null || ropes.Length == 0))
+        if (ropes == null || ropes.Length == 0)
         {
             if (ropesRoot != null)
-                ropes = ropesRoot.GetComponentsInChildren<TapePiece>(includeInactive: false);
+                ropes = ropesRoot.GetComponentsInChildren<TapePiece>(false);
             else
                 ropes = FindObjectsByType<TapePiece>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
         }
@@ -50,18 +71,24 @@ public class RopesAttachOnDeath : MonoBehaviour
     private void OnEnable()
     {
         if (manager != null)
-            manager.OnFirstHit0 += HandleFirstZero;
+            manager.OnFirstHit0 += HandleFirstZeroServer;
     }
 
     private void OnDisable()
     {
         if (manager != null)
-            manager.OnFirstHit0 -= HandleFirstZero;
+            manager.OnFirstHit0 -= HandleFirstZeroServer;
     }
 
-    private void HandleFirstZero(TapePiece destroyed)
+    // ------------------------------------------------------------
+    //            СРАБОТАЛ НУЛЕВОЙ ПОРОГ (ТОЛЬКО СЕРВЕР)
+    // ------------------------------------------------------------
+    [Server]
+    private void HandleFirstZeroServer(TapePiece destroyed)
     {
+        if (!isServer) return;
         if (_done || destroyed == null || leftAnchor == null || rightAnchor == null) return;
+
         _done = true;
 
         float pivotX = destroyed.transform.position.x;
@@ -72,38 +99,67 @@ public class RopesAttachOnDeath : MonoBehaviour
 
             float x = r.transform.position.x;
 
-            // Определяем сторону  
             bool goRight = x > pivotX || (Mathf.Approximately(x, pivotX) && equalGoesRight);
             var targetParent = goRight ? rightAnchor : leftAnchor;
 
-            // Просто прикрепляем (без движения)  
             r.transform.SetParent(targetParent, worldPositionStays);
         }
-        StartCoroutine(PostZeroSequence(destroyed));
+
+        StartCoroutine(PostZeroSequenceServer(destroyed));
     }
 
-    private System.Collections.IEnumerator PostZeroSequence(TapePiece destroyed)
+    // ------------------------------------------------------------
+    //                ПОСЛЕДОВАТЕЛЬНОСТЬ ПОСЛЕ НУЛЯ
+    // ------------------------------------------------------------
+    [Server]
+    private System.Collections.IEnumerator PostZeroSequenceServer(TapePiece destroyed)
     {
-        // случайная задержка
-        DeathAudioSource.Play();
-        
+        // RPC: звук 1
+        RpcPlayOneShot(SoundID.HeadCut);
+
         float delay = Random.Range(postZeroDelayRange.x, postZeroDelayRange.y);
         if (delay > 0f) yield return new WaitForSeconds(delay);
 
-        // 1) уничтожаем кусок destroyed
-        if (destroyed != null) Destroy(destroyed.gameObject);
+        // Удаляем уничтоженную верёвку
+        if (destroyed != null)
+            NetworkServer.Destroy(destroyed.gameObject);
 
-        // 2) включаем движение левого трансформа влево
+        // Начинаем движение
         _moveLeftActive = true;
-        DeathAudioSource.clip = giliotina;
-        DeathAudioSource.Play();
-        // 3) триггерим аниматор
-        if (deathAnimator != null && !string.IsNullOrEmpty(deathTrigger))
-            deathAnimator.SetTrigger(deathTrigger);
+
+        // RPC: звук 2
+        RpcPlayOneShot(SoundID.Giliotina);
+
+        // RPC: анимация смерти
+        if (!string.IsNullOrEmpty(deathTrigger))
+            RpcSetAnimatorTrigger(deathTrigger);
     }
 
+    // ------------------------------------------------------------
+    //                   RPC АУДИО / АНИМАЦИИ
+    // ------------------------------------------------------------
+    [ClientRpc]
+    private void RpcPlayOneShot(SoundID clipID)
+    {
+        var clip = GetClipByID(clipID);
+        if (DeathAudioSource != null && clip != null)
+            DeathAudioSource.PlayOneShot(clip);
+    }
+
+    [ClientRpc]
+    private void RpcSetAnimatorTrigger(string trigger)
+    {
+        if (deathAnimator != null)
+            deathAnimator.SetTrigger(trigger);
+    }
+
+    // ------------------------------------------------------------
+    //              ДВИЖЕНИЕ ВЛЕВО (ТОЛЬКО СЕРВЕР)
+    // ------------------------------------------------------------
     private void Update()
     {
+        if (!isServer) return;
+
         if (_moveLeftActive && leftAnchor != null && leftMoveSpeed > 0f)
             leftAnchor.Translate(Vector3.left * leftMoveSpeed * Time.deltaTime, Space.World);
     }

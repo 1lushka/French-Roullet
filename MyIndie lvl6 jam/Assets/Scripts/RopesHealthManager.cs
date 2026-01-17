@@ -1,28 +1,34 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Mirror;
 
-public class RopesHealthManager : MonoBehaviour
+public class RopesHealthManager : NetworkBehaviour
 {
-    [Header("Верёвки для отслеживания")]
+    [Header("Ropes")]
     [SerializeField] private TapePiece[] ropes;
 
-    // События "один раз за игру"
-    public event Action<int, TapePiece> OnFirstThresholdHit; // (порог, верёвка)
+    // Events (server only)
+    public event Action<int, TapePiece> OnFirstThresholdHit;
     public event Action<TapePiece> OnFirstHit2;
     public event Action<TapePiece> OnFirstHit1;
     public event Action<TapePiece> OnFirstHit0;
 
-    // Храним последнее здоровье по каждой верёвке для детекта "снижения через порог"
+    // Tracking previous health per rope
     private readonly Dictionary<TapePiece, int> _lastHealth = new();
 
-    // Глобально запомненные уже сработавшие пороги (живут весь рантайм)
+    // Global fired thresholds, shared for whole session
     private static readonly HashSet<int> _firedThresholdsGlobal = new HashSet<int>();
 
     private static readonly int[] _thresholds = { 2, 1, 0 };
 
-    private void OnEnable()
+    // --------------------------------------------------------------------
+    //                      SERVER LIFECYCLE
+    // --------------------------------------------------------------------
+    public override void OnStartClient()
     {
+        base.OnStartClient();
+
         if (ropes == null) return;
 
         foreach (var rope in ropes)
@@ -30,35 +36,42 @@ public class RopesHealthManager : MonoBehaviour
             if (rope == null) continue;
 
             if (!_lastHealth.ContainsKey(rope))
-                _lastHealth[rope] = rope.Health; // читаем начальное значение
+                _lastHealth[rope] = rope.Health;
 
-            rope.HealthChanged += HandleHealthChanged;
+            // Subscribe ONLY on server
+            rope.HealthChanged += HandleHealthChangedServer;
         }
     }
 
-    private void OnDisable()
+    public override void OnStopServer()
     {
+        base.OnStopServer();
+
         if (ropes == null) return;
 
         foreach (var rope in ropes)
         {
             if (rope == null) continue;
-            rope.HealthChanged -= HandleHealthChanged;
+            rope.HealthChanged -= HandleHealthChangedServer;
         }
     }
 
-    private void HandleHealthChanged(TapePiece rope, int newHealth)
+    // --------------------------------------------------------------------
+    //                    SERVER HEALTH CHANGE HANDLER
+    // --------------------------------------------------------------------
+    [Server]
+    private void HandleHealthChangedServer(TapePiece rope, int newHealth)
     {
         if (!_lastHealth.TryGetValue(rope, out var prev))
             prev = newHealth;
 
-        // Проверяем пересечение каждого порога сверху вниз
         foreach (var t in _thresholds)
         {
+            // already fired globally?
             if (_firedThresholdsGlobal.Contains(t))
-                continue; // уже стреляли этот порог ранее в этой игре
+                continue;
 
-            // "Снижение через порог": было > t, стало <= t
+            // Detect threshold crossing
             if (prev > t && newHealth <= t)
             {
                 _firedThresholdsGlobal.Add(t);
@@ -72,22 +85,28 @@ public class RopesHealthManager : MonoBehaviour
                     case 0: OnFirstHit0?.Invoke(rope); break;
                 }
 
-                // можно прервать — за один апдейт здоровья максимум один наименьший порог пересечётся
-                break;
+                break; // Only the lowest threshold can be crossed at once
             }
         }
 
         _lastHealth[rope] = newHealth;
     }
 
-    // Опционально: метод для ручного сброса между уровнями/запусками
+    // --------------------------------------------------------------------
+    //                      RESET BETWEEN LEVELS IF NEEDED
+    // --------------------------------------------------------------------
     public static void ResetGlobalThresholds()
     {
         _firedThresholdsGlobal.Clear();
     }
+
+    // --------------------------------------------------------------------
+    //                      DEBUG (SERVER)
+    // --------------------------------------------------------------------
     void Start()
     {
-        HookRopesHealthDebug(this);
+        if (isServer) // Debug only from server
+            HookRopesHealthDebug(this);
     }
 
     public static void HookRopesHealthDebug(RopesHealthManager mgr)
@@ -109,6 +128,6 @@ public class RopesHealthManager : MonoBehaviour
 
         mgr.OnFirstHit0 += rope =>
             Debug.Log($"[RopesHealth] FIRST 0 hit by '{rope?.name}'");
-    }
 
+    }
 }
