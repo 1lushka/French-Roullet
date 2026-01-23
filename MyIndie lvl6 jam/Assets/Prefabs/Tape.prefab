@@ -152,7 +152,6 @@ GameObject:
   - component: {fileID: 2261896880755730867}
   - component: {fileID: 4692161622379824467}
   - component: {fileID: 3111993059530550807}
-  - component: {fileID: 1258458262275599349}
   m_Layer: 0
   m_Name: Tape
   m_TagString: Tape
@@ -215,38 +214,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 28c81f8c5e9faee419403332d3207ffd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  syncDirection: 0
-  syncMode: 0
-  syncInterval: 0
   health: 3
   ropePieces:
   - {fileID: 6350601297197341836}
   - {fileID: 8695610355854731964}
-  minScaleY: 0.3
-  maxScaleY: 1
-  scaleTweenDuration: 0.5
   shakeDuration: 0.2
   shakeStrength: 0.3
   shakeVibrato: 20
   shakeRandomness: 90
   damageCooldown: 0.3
---- !u!114 &1258458262275599349
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7791715513148532842}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9b91ecbcc199f4492b9a91e820070131, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  sceneId: 0
-  _assetId: 489493467
-  serverOnly: 0
-  visibility: 0
-  hasSpawned: 0
+  scaleTweenDuration: 0.5
 --- !u!1001 &5249446090207202215
 PrefabInstance:
   m_ObjectHideFlags: 0

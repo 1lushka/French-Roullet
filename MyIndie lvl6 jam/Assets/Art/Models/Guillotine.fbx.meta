@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 718e837daa657b8489a283c5fe7dc0f4
+guid: 5b367c21d61905c47b790c27b7478ec7
 ModelImporter:
   serializedVersion: 22200
   internalIDToNameTable: []
@@ -7,8 +7,18 @@ ModelImporter:
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
-      name: TableWood
+      name: Guillotine
     second: {fileID: 2100000, guid: 251c891eafa2d034bafe5bec9c2378c5, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: WoodPlanks_ALT2
+    second: {fileID: 2100000, guid: 045083c2ec06fc2419bb2b02153291c0, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: WoodPlanks_ALT3
+    second: {fileID: 2100000, guid: 37628dfb431bd9945828344043f799b7, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0

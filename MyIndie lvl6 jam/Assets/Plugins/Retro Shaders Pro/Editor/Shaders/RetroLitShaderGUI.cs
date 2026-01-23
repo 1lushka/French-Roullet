@@ -17,10 +17,58 @@ namespace RetroShadersPro.URP
         const string baseTexLabel = "Base Texture";
         const string baseTexTooltip = "Albedo texture of the object.";
 
+        // -------- Normal Map --------
+        MaterialProperty bumpMapProp = null;
+        const string bumpMapName = "_BumpMap";
+        const string bumpMapLabel = "Normal Map";
+        const string bumpMapTooltip = "Tangent-space normal map.";
+
+        MaterialProperty bumpScaleProp = null;
+        const string bumpScaleName = "_BumpScale";
+        const string bumpScaleLabel = "Normal Strength";
+        const string bumpScaleTooltip = "Normal map intensity.";
+        // ----------------------------
+
+        // -------- Outline --------
+        MaterialProperty outlineProp = null;
+        const string outlineName = "_Outline";
+        const string outlineLabel = "Outline";
+
+        MaterialProperty outlineColorProp = null;
+        const string outlineColorName = "_OutlineColor";
+        const string outlineColorLabel = "Outline Color";
+
+        MaterialProperty outlineWidthProp = null;
+        const string outlineWidthName = "_OutlineWidth";
+        const string outlineWidthLabel = "Outline Width (World)";
+
+        const string outlineKeywordName = "_OUTLINE_ON";
+        // -------------------------
+
+        // -------- Rim Light --------
+        MaterialProperty rimProp = null;
+        const string rimName = "_Rim";
+        const string rimLabel = "Rim Light";
+
+        MaterialProperty rimColorProp = null;
+        const string rimColorName = "_RimColor";
+        const string rimColorLabel = "Rim Color";
+
+        MaterialProperty rimPowerProp = null;
+        const string rimPowerName = "_RimPower";
+        const string rimPowerLabel = "Rim Power";
+
+        MaterialProperty rimIntensityProp = null;
+        const string rimIntensityName = "_RimIntensity";
+        const string rimIntensityLabel = "Rim Intensity";
+
+        const string rimKeywordName = "_RIM_ON";
+        // ---------------------------
+
         MaterialProperty resolutionLimitProp = null;
         const string resolutionLimitName = "_ResolutionLimit";
         const string resolutionLimitLabel = "Resolution Limit";
-        const string resolutionLimitTooltip = "Limits the resolution of the texture to this value." + 
+        const string resolutionLimitTooltip = "Limits the resolution of the texture to this value." +
             "\nNote that this setting only snaps the resolution to powers of two." +
             "\nAlso, make sure the Base Texture has mipmaps enabled.";
 
@@ -48,7 +96,7 @@ namespace RetroShadersPro.URP
         MaterialProperty affineTextureStrengthProp = null;
         const string affineTextureStrengthName = "_AffineTextureStrength";
         const string affineTextureStrengthLabel = "Affine Texture Strength";
-        const string affineTextureStrengthTooltip = "How strongly the affine texture mapping effect is applied." + 
+        const string affineTextureStrengthTooltip = "How strongly the affine texture mapping effect is applied." +
             "\nWhen this is set to 1, the shader uses affine texture mapping exactly like the PS1." +
             "\nWhen this is set to 0, the shader uses perspective-correct texture mapping, like modern systems.";
 
@@ -98,21 +146,8 @@ namespace RetroShadersPro.URP
 
         private const string alphaTestName = "_ALPHATEST_ON";
 
-        private static readonly string[] surfaceTypeNames = Enum.GetNames(typeof(SurfaceType));
-        private static readonly string[] renderFaceNames = Enum.GetNames(typeof(RenderFace));
-
-        private enum SurfaceType
-        {
-            Opaque = 0,
-            Transparent = 1
-        }
-
-        private enum RenderFace
-        {
-            Front = 2,
-            Back = 1,
-            Both = 0
-        }
+        private enum SurfaceType { Opaque = 0, Transparent = 1 }
+        private enum RenderFace { Front = 2, Back = 1, Both = 0 }
 
         private SurfaceType surfaceType = SurfaceType.Opaque;
         private RenderFace renderFace = RenderFace.Front;
@@ -121,10 +156,29 @@ namespace RetroShadersPro.URP
         protected MaterialEditor materialEditor;
         private bool firstTimeOpen = true;
 
+        private static void SetKeyword(Material mat, string keyword, bool enabled)
+        {
+            if (enabled) mat.EnableKeyword(keyword);
+            else mat.DisableKeyword(keyword);
+        }
+
         private void FindProperties(MaterialProperty[] props)
         {
             baseColorProp = FindProperty(baseColorName, props, true);
             baseTexProp = FindProperty(baseTexName, props, true);
+
+            bumpMapProp = FindProperty(bumpMapName, props, false);
+            bumpScaleProp = FindProperty(bumpScaleName, props, false);
+
+            outlineProp = FindProperty(outlineName, props, false);
+            outlineColorProp = FindProperty(outlineColorName, props, false);
+            outlineWidthProp = FindProperty(outlineWidthName, props, false);
+
+            rimProp = FindProperty(rimName, props, false);
+            rimColorProp = FindProperty(rimColorName, props, false);
+            rimPowerProp = FindProperty(rimPowerName, props, false);
+            rimIntensityProp = FindProperty(rimIntensityName, props, false);
+
             resolutionLimitProp = FindProperty(resolutionLimitName, props, true);
             snapsPerUnitProp = FindProperty(snapsPerUnitName, props, true);
             colorBitDepthProp = FindProperty(colorBitDepthName, props, true);
@@ -137,7 +191,6 @@ namespace RetroShadersPro.URP
             usePixelLightingProp = FindProperty(usePixelLightingName, props, false);
             useVertexColorProp = FindProperty(useVertexColorName, props, false);
 
-            //surfaceTypeProp = FindProperty(kSurfaceTypeProp, props, false);
             cullProp = FindProperty(cullName, props, true);
             alphaClipProp = FindProperty(alphaClipName, props, true);
             alphaClipThresholdProp = FindProperty(alphaClipThresholdName, props, true);
@@ -146,9 +199,7 @@ namespace RetroShadersPro.URP
         public override void OnGUI(MaterialEditor materialEditor, MaterialProperty[] properties)
         {
             if (materialEditor == null)
-            {
                 throw new ArgumentNullException("No MaterialEditor found (RetroLitShaderGUI).");
-            }
 
             Material material = materialEditor.target as Material;
             this.materialEditor = materialEditor;
@@ -171,53 +222,26 @@ namespace RetroShadersPro.URP
             surfaceType = (SurfaceType)material.GetFloat(surfaceTypeName);
             renderFace = (RenderFace)material.GetFloat(cullName);
 
-            // Display opaque/transparent options.
             bool surfaceTypeChanged = false;
             EditorGUI.BeginChangeCheck();
-            {
-                surfaceType = (SurfaceType)EditorGUILayout.EnumPopup(new GUIContent(surfaceTypeLabel, surfaceTypeTooltip), surfaceType);
-            }
-            if (EditorGUI.EndChangeCheck())
-            {
-                surfaceTypeChanged = true;
-            }
+            surfaceType = (SurfaceType)EditorGUILayout.EnumPopup(new GUIContent(surfaceTypeLabel, surfaceTypeTooltip), surfaceType);
+            if (EditorGUI.EndChangeCheck()) surfaceTypeChanged = true;
 
-            // Display culling options.
             EditorGUI.BeginChangeCheck();
-            {
-                renderFace = (RenderFace)EditorGUILayout.EnumPopup(cullLabel, renderFace);
-            }
+            renderFace = (RenderFace)EditorGUILayout.EnumPopup(new GUIContent(cullLabel, cullTooltip), renderFace);
             if (EditorGUI.EndChangeCheck())
             {
                 switch (renderFace)
                 {
-                    case RenderFace.Both:
-                        {
-                            material.SetFloat(cullName, 0);
-                            break;
-                        }
-                    case RenderFace.Back:
-                        {
-                            material.SetFloat(cullName, 1);
-                            break;
-                        }
-                    case RenderFace.Front:
-                        {
-                            material.SetFloat(cullName, 2);
-                            break;
-                        }
+                    case RenderFace.Both: material.SetFloat(cullName, 0); break;
+                    case RenderFace.Back: material.SetFloat(cullName, 1); break;
+                    case RenderFace.Front: material.SetFloat(cullName, 2); break;
                 }
             }
 
-            // Display alpha clip options.
             EditorGUI.BeginChangeCheck();
-            {
-                materialEditor.ShaderProperty(alphaClipProp, alphaClipLabel);
-            }
-            if (EditorGUI.EndChangeCheck())
-            {
-                surfaceTypeChanged = true;
-            }
+            materialEditor.ShaderProperty(alphaClipProp, new GUIContent(alphaClipLabel, alphaClipTooltip));
+            if (EditorGUI.EndChangeCheck()) surfaceTypeChanged = true;
 
             bool alphaClip;
 
@@ -246,21 +270,13 @@ namespace RetroShadersPro.URP
                                 material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Geometry;
                                 material.SetOverrideTag("RenderType", "Opaque");
                             }
-
-
                             break;
                         }
                     case SurfaceType.Transparent:
                         {
                             alphaClip = material.GetFloat(alphaClipName) >= 0.5f;
-                            if (alphaClip)
-                            {
-                                material.EnableKeyword(alphaTestName);
-                            }
-                            else
-                            {
-                                material.DisableKeyword(alphaTestName);
-                            }
+                            SetKeyword(material, alphaTestName, alphaClip);
+
                             material.SetOverrideTag("RenderType", "Transparent");
                             material.SetFloat("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
                             material.SetFloat("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
@@ -277,93 +293,113 @@ namespace RetroShadersPro.URP
             if (alphaClip)
             {
                 EditorGUI.indentLevel++;
-                materialEditor.ShaderProperty(alphaClipThresholdProp, alphaClipThresholdLabel);
+                materialEditor.ShaderProperty(alphaClipThresholdProp, new GUIContent(alphaClipThresholdLabel, alphaClipThresholdTooltip));
                 EditorGUI.indentLevel--;
             }
         }
 
         private void DrawRetroProperties(Material material)
         {
-            materialEditor.ShaderProperty(baseColorProp, baseColorLabel);
-            materialEditor.ShaderProperty(baseTexProp, baseTexLabel);
-            materialEditor.ShaderProperty(resolutionLimitProp, resolutionLimitLabel);
-            materialEditor.ShaderProperty(snapsPerUnitProp, snapsPerUnitLabel);
-            materialEditor.ShaderProperty(colorBitDepthProp, colorBitDepthLabel);
-            materialEditor.ShaderProperty(colorBitDepthOffsetProp, colorBitDepthOffsetLabel);
-            materialEditor.ShaderProperty(affineTextureStrengthProp, new GUIContent(affineTextureStrengthLabel, affineTextureStrengthTooltip));
-            
-            //materialEditor.ShaderProperty(useDitheringProp, new GUIContent(useDitheringLabel, useDitheringTooltip));
+            materialEditor.ShaderProperty(baseColorProp, new GUIContent(baseColorLabel, baseColorTooltip));
+            materialEditor.ShaderProperty(baseTexProp, new GUIContent(baseTexLabel, baseTexTooltip));
 
-            if (ambientLightProp != null)
+            if (bumpMapProp != null)
             {
-                materialEditor.ShaderProperty(ambientToggleProp, ambientToggleLabel);
-
-                bool ambient = material.GetFloat(ambientToggleName) >= 0.5f;
-
-                if (ambient)
+                if (bumpScaleProp != null)
                 {
-                    material.EnableKeyword(ambientToggleName);
-
-                    EditorGUI.indentLevel++;
-                    materialEditor.ShaderProperty(ambientLightProp, ambientLightLabel);
-                    EditorGUI.indentLevel--;
+                    materialEditor.TexturePropertySingleLine(
+                        new GUIContent(bumpMapLabel, bumpMapTooltip),
+                        bumpMapProp,
+                        bumpScaleProp
+                    );
                 }
                 else
                 {
-                    material.DisableKeyword(ambientToggleName);
+                    materialEditor.TexturePropertySingleLine(
+                        new GUIContent(bumpMapLabel, bumpMapTooltip),
+                        bumpMapProp
+                    );
+                }
+            }
+
+            materialEditor.ShaderProperty(resolutionLimitProp, new GUIContent(resolutionLimitLabel, resolutionLimitTooltip));
+            materialEditor.ShaderProperty(snapsPerUnitProp, new GUIContent(snapsPerUnitLabel, snapsPerUnitTooltip));
+            materialEditor.ShaderProperty(colorBitDepthProp, new GUIContent(colorBitDepthLabel, colorBitDepthTooltip));
+            materialEditor.ShaderProperty(colorBitDepthOffsetProp, new GUIContent(colorBitDepthOffsetLabel, colorBitDepthOffsetTooltip));
+            materialEditor.ShaderProperty(affineTextureStrengthProp, new GUIContent(affineTextureStrengthLabel, affineTextureStrengthTooltip));
+
+            if (ambientLightProp != null)
+            {
+                materialEditor.ShaderProperty(ambientToggleProp, new GUIContent(ambientToggleLabel, ambientToggleTooltip));
+
+                bool ambient = material.GetFloat(ambientToggleName) >= 0.5f;
+                SetKeyword(material, ambientToggleName, ambient);
+
+                if (ambient)
+                {
+                    EditorGUI.indentLevel++;
+                    materialEditor.ShaderProperty(ambientLightProp, new GUIContent(ambientLightLabel, ambientLightTooltip));
+                    EditorGUI.indentLevel--;
                 }
             }
 
             if (usePointFilteringProp != null)
-            {
-                materialEditor.ShaderProperty(usePointFilteringProp, usePointFilteringLabel);
-            }
+                materialEditor.ShaderProperty(usePointFilteringProp, new GUIContent(usePointFilteringLabel, usePointFilteringTooltip));
 
             if (useDitheringProp != null)
             {
                 materialEditor.ShaderProperty(useDitheringProp, new GUIContent(useDitheringLabel, useDitheringTooltip));
-
-                bool dither = material.GetFloat(useDitheringName) >= 0.5f;
-
-                if (dither)
-                {
-                    material.EnableKeyword(useDitheringName);
-                }
-                else
-                {
-                    material.DisableKeyword(useDitheringName);
-                }
+                SetKeyword(material, useDitheringName, material.GetFloat(useDitheringName) >= 0.5f);
             }
 
-            if(usePixelLightingProp != null)
+            if (usePixelLightingProp != null)
             {
                 materialEditor.ShaderProperty(usePixelLightingProp, new GUIContent(usePixelLightingLabel, usePixelLightingTooltip));
+                SetKeyword(material, usePixelLightingName, material.GetFloat(usePixelLightingName) >= 0.5f);
+            }
 
-                bool pixelLighting = material.GetFloat(usePixelLightingName) >= 0.5f;
+            if (useVertexColorProp != null)
+            {
+                materialEditor.ShaderProperty(useVertexColorProp, new GUIContent(useVertexColorLabel, useVertexColorTooltip));
+                SetKeyword(material, useVertexColorName, material.GetFloat(useVertexColorName) >= 0.5f);
+            }
 
-                if (pixelLighting)
+            // ===== OUTLINE UI =====
+            if (outlineProp != null)
+            {
+                EditorGUILayout.Space(6);
+                EditorGUILayout.LabelField("Outline", EditorStyles.boldLabel);
+
+                materialEditor.ShaderProperty(outlineProp, outlineLabel);
+                bool outlineEnabled = material.GetFloat(outlineName) >= 0.5f;
+                SetKeyword(material, outlineKeywordName, outlineEnabled);
+
+                if (outlineEnabled)
                 {
-                    material.EnableKeyword(usePixelLightingName);
-                }
-                else
-                {
-                    material.DisableKeyword(usePixelLightingName);
+                    EditorGUI.indentLevel++;
+                    if (outlineColorProp != null) materialEditor.ShaderProperty(outlineColorProp, outlineColorLabel);
+                    if (outlineWidthProp != null) materialEditor.ShaderProperty(outlineWidthProp, outlineWidthLabel);
+                    EditorGUI.indentLevel--;
                 }
             }
 
-            if(useVertexColorProp != null)
+            // ===== RIM LIGHT UI =====
+            if (rimProp != null)
             {
-                materialEditor.ShaderProperty(useVertexColorProp, new GUIContent(useVertexColorLabel, useVertexColorTooltip));
+                EditorGUILayout.Space(6);
+                EditorGUILayout.LabelField("Rim Light", EditorStyles.boldLabel);
 
-                bool vertexColors = material.GetFloat(useVertexColorName) >= 0.5f;
+                materialEditor.ShaderProperty(rimProp, rimLabel);
+                bool rimEnabled = material.GetFloat(rimName) >= 0.5f;
+                SetKeyword(material, rimKeywordName, rimEnabled);
 
-                if (vertexColors)
+                if (rimEnabled)
                 {
-                    material.EnableKeyword(useVertexColorName);
-                }
-                else
-                {
-                    material.DisableKeyword(useVertexColorName);
+                    EditorGUI.indentLevel++;
+                    if (rimColorProp != null) materialEditor.ShaderProperty(rimColorProp, rimColorLabel);
+                    if (rimPowerProp != null) materialEditor.ShaderProperty(rimPowerProp, rimPowerLabel);
+                    if (rimIntensityProp != null) materialEditor.ShaderProperty(rimIntensityProp, rimIntensityLabel);
+                    EditorGUI.indentLevel--;
                 }
             }
         }

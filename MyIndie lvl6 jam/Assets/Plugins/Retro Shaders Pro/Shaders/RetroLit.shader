@@ -2,484 +2,618 @@ Shader "Retro Shaders Pro/Retro Lit"
 {
     Properties
     {
-		[MainColor] [HDR] _BaseColor("Base Color", Color) = (1, 1, 1, 1)
-		[MainTexture] _BaseMap("Base Texture", 2D) = "white" {}
-		_ResolutionLimit("Resolution Limit (Power of 2)", Integer) = 64
-		_SnapsPerUnit("Snapping Points per Meter", Integer) = 64
-		_ColorBitDepth("Bit Depth", Integer) = 64
-		_ColorBitDepthOffset("Bit Depth Offset", Range(0.0, 1.0)) = 0.0
-		_AmbientLight("Ambient Light Strength", Range(0.0, 1.0)) = 0.02
-		_AffineTextureStrength("Affine Texture Strength", Range(0.0, 1.0)) = 1.0
-		[Toggle] _USE_POINT_FILTER("Use Point Filtering", Float) = 1
-		[Toggle] _USE_AMBIENT_OVERRIDE("Ambient Light Override", Float) = 0
-		[Toggle] _USE_DITHERING("Use Dithering", Float) = 0
-		[Toggle] _USE_PIXEL_LIGHTING("Use Pixel Lighting", Float) = 1
-		[ToggleOff] _USE_VERTEX_COLORS("Use Vertex Colors", Float) = 0
+        [MainColor] [HDR] _BaseColor("Base Color", Color) = (1, 1, 1, 1)
+        [MainTexture] _BaseMap("Base Texture", 2D) = "white" {}
 
-		[ToggleUI] _AlphaClip("Alpha Clip", Float) = 0.0
-		[HideInInspector] _Cutoff("Alpha Clip Threshold", Range(0.0, 1.0)) = 0.5
-		[HideInInspector] _SrcBlend("__src", Float) = 1.0
-		[HideInInspector] _DstBlend("__dst", Float) = 0.0
-		[HideInInspector] _ZWrite("__zw", Float) = 1.0
-		[HideInInspector] _Cull("_Cull", Float) = 2.0
-		[HideInInspector] _Surface("_Surface", Float) = 0.0
+        // --- Normal map support ---
+        [Normal] _BumpMap("Normal Map", 2D) = "bump" {}
+        _BumpScale("Normal Strength", Range(0, 2)) = 1
+        // --------------------------
+
+        _ResolutionLimit("Resolution Limit (Power of 2)", Integer) = 64
+        _SnapsPerUnit("Snapping Points per Meter", Integer) = 64
+        _ColorBitDepth("Bit Depth", Integer) = 64
+        _ColorBitDepthOffset("Bit Depth Offset", Range(0.0, 1.0)) = 0.0
+        _AmbientLight("Ambient Light Strength", Range(0.0, 1.0)) = 0.02
+        _AffineTextureStrength("Affine Texture Strength", Range(0.0, 1.0)) = 1.0
+        [Toggle] _USE_POINT_FILTER("Use Point Filtering", Float) = 1
+        [Toggle] _USE_AMBIENT_OVERRIDE("Ambient Light Override", Float) = 0
+        [Toggle] _USE_DITHERING("Use Dithering", Float) = 0
+        [Toggle] _USE_PIXEL_LIGHTING("Use Pixel Lighting", Float) = 1
+        [ToggleOff] _USE_VERTEX_COLORS("Use Vertex Colors", Float) = 0
+
+        // ===== OUTLINE (как в Retro Unlit) =====
+        [Toggle(_OUTLINE_ON)] _Outline("Outline", Float) = 0
+        [HDR] _OutlineColor("Outline Color", Color) = (0, 0, 0, 1)
+        _OutlineWidth("Outline Width (World)", Range(0.0, 0.5)) = 0.02
+        // =======================================
+
+        // ===== RIM LIGHT (как в Retro Unlit) ===
+        [Toggle(_RIM_ON)] _Rim("Rim Light", Float) = 0
+        [HDR] _RimColor("Rim Color", Color) = (1, 1, 1, 1)
+        _RimPower("Rim Power", Range(0.5, 8.0)) = 2.0
+        _RimIntensity("Rim Intensity", Range(0.0, 5.0)) = 1.0
+        // =======================================
+
+        [ToggleUI] _AlphaClip("Alpha Clip", Float) = 0.0
+        [HideInInspector] _Cutoff("Alpha Clip Threshold", Range(0.0, 1.0)) = 0.5
+        [HideInInspector] _SrcBlend("__src", Float) = 1.0
+        [HideInInspector] _DstBlend("__dst", Float) = 0.0
+        [HideInInspector] _ZWrite("__zw", Float) = 1.0
+        [HideInInspector] _Cull("_Cull", Float) = 2.0
+        [HideInInspector] _Surface("_Surface", Float) = 0.0
     }
+
     SubShader
     {
-		Tags
-		{
-			"RenderType" = "Opaque"
-			"Queue" = "Geometry"
-			"RenderPipeline" = "UniversalPipeline"
-		}
+        Tags
+        {
+            "RenderType" = "Opaque"
+            "Queue" = "Geometry"
+            "RenderPipeline" = "UniversalPipeline"
+        }
 
-		HLSLINCLUDE
-		#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-		#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/GlobalSamplers.hlsl"
-		#include "RetroSurfaceInput.hlsl"
+        HLSLINCLUDE
+        #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+        #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/GlobalSamplers.hlsl"
+        #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/CommonMaterial.hlsl" // UnpackNormalScale
+        #include "RetroSurfaceInput.hlsl"
 
-		#define EPSILON 1e-06
+        #define EPSILON 1e-06
 
-		float3 dither(float3 col, float2 uv)
-		{
-			static float DITHER_THRESHOLDS[16] =
-			{
-				1.0 / 17.0,  9.0 / 17.0,  3.0 / 17.0, 11.0 / 17.0,
-				13.0 / 17.0,  5.0 / 17.0, 15.0 / 17.0,  7.0 / 17.0,
-				4.0 / 17.0, 12.0 / 17.0,  2.0 / 17.0, 10.0 / 17.0,
-				16.0 / 17.0,  8.0 / 17.0, 14.0 / 17.0,  6.0 / 17.0
-			};
-			uint index = (uint(uv.x) % 4) * 4 + uint(uv.y) % 4;
+        TEXTURE2D(_BumpMap);
+        float _BumpScale;
 
-			return col - DITHER_THRESHOLDS[index];
-		}
-		ENDHLSL
+        float3 dither(float3 col, float2 uv)
+        {
+            static float DITHER_THRESHOLDS[16] =
+            {
+                1.0 / 17.0,  9.0 / 17.0,  3.0 / 17.0, 11.0 / 17.0,
+                13.0 / 17.0,  5.0 / 17.0, 15.0 / 17.0,  7.0 / 17.0,
+                4.0 / 17.0, 12.0 / 17.0,  2.0 / 17.0, 10.0 / 17.0,
+                16.0 / 17.0,  8.0 / 17.0, 14.0 / 17.0,  6.0 / 17.0
+            };
+            uint index = (uint(uv.x) % 4) * 4 + uint(uv.y) % 4;
+            return col - DITHER_THRESHOLDS[index];
+        }
+        ENDHLSL
 
         Pass
         {
-			Tags
-			{
-				"LightMode" = "UniversalForward"
-			}
+            Tags { "LightMode" = "UniversalForward" }
 
-			Blend[_SrcBlend][_DstBlend]
-			ZWrite[_ZWrite]
-			Cull[_Cull]
+            Blend[_SrcBlend][_DstBlend]
+            ZWrite[_ZWrite]
+            Cull[_Cull]
 
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
-			#pragma target 3.0
+            #pragma target 3.0
 
             #pragma multi_compile_fog
-			#pragma multi_compile_instancing
-			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+            #pragma multi_compile_instancing
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
 
-			#pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
-			#pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
-			#pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
-			#pragma multi_compile_fragment _ _REFLECTION_PROBE_BLENDING
-			#pragma multi_compile_fragment _ _REFLECTION_PROBE_BOX_PROJECTION
-			#pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
-			#pragma multi_compile_fragment _ _DBUFFER_MRT1 _DBUFFER_MRT2 _DBUFFER_MRT3
-			#pragma multi_compile_fragment _ _SHADOWS_SOFT
-			#pragma multi_compile _ _FORWARD_PLUS
-			#pragma multi_compile_fragment _ _LIGHT_LAYERS
-			#pragma multi_compile_fragment _ _LIGHT_COOKIES
+            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
+            #pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
+            #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
+            #pragma multi_compile_fragment _ _REFLECTION_PROBE_BLENDING
+            #pragma multi_compile_fragment _ _REFLECTION_PROBE_BOX_PROJECTION
+            #pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
+            #pragma multi_compile_fragment _ _DBUFFER_MRT1 _DBUFFER_MRT2 _DBUFFER_MRT3
+            #pragma multi_compile_fragment _ _SHADOWS_SOFT
+            #pragma multi_compile _ _FORWARD_PLUS
+            #pragma multi_compile_fragment _ _LIGHT_LAYERS
+            #pragma multi_compile_fragment _ _LIGHT_COOKIES
 
-			#pragma multi_compile _ EVALUATE_SH_MIXED EVALUATE_SH_VERTEX
-			#pragma multi_compile _ LIGHTMAP_SHADOW_MIXING
-			#pragma multi_compile _ SHADOWS_SHADOWMASK
-			#pragma multi_compile _ DIRLIGHTMAP_COMBINED
-			#pragma multi_compile _ LIGHTMAP_ON
-			#pragma multi_compile _ DYNAMICLIGHTMAP_ON
+            #pragma multi_compile _ EVALUATE_SH_MIXED EVALUATE_SH_VERTEX
+            #pragma multi_compile _ LIGHTMAP_SHADOW_MIXING
+            #pragma multi_compile _ SHADOWS_SHADOWMASK
+            #pragma multi_compile _ DIRLIGHTMAP_COMBINED
+            #pragma multi_compile _ LIGHTMAP_ON
+            #pragma multi_compile _ DYNAMICLIGHTMAP_ON
 
-			#pragma shader_feature_local_fragment _ALPHATEST_ON
-			#pragma shader_feature_local_fragment _USE_POINT_FILTER_ON
-			#pragma shader_feature_local_fragment _USE_AMBIENT_OVERRIDE
-			#pragma shader_feature_local_fragment _USE_DITHERING
-			#pragma shader_feature_local_fragment _USE_PIXEL_LIGHTING
-			#pragma shader_feature_local_fragment _USE_VERTEX_COLORS
+            #pragma shader_feature_local_fragment _ALPHATEST_ON
+            #pragma shader_feature_local_fragment _USE_POINT_FILTER_ON
+            #pragma shader_feature_local_fragment _USE_AMBIENT_OVERRIDE
+            #pragma shader_feature_local_fragment _USE_DITHERING
+            #pragma shader_feature_local_fragment _USE_PIXEL_LIGHTING
+            #pragma shader_feature_local_fragment _USE_VERTEX_COLORS
+            #pragma shader_feature_local_fragment _RIM_ON
 
-			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+
+            float4 _RimColor;
+            float _RimPower;
+            float _RimIntensity;
 
             struct appdata
             {
-				float4 positionOS : POSITION;
-				float4 color : COLOR;
-				float3 normalOS : NORMAL;
+                float4 positionOS : POSITION;
+                float4 color : COLOR;
+                float3 normalOS : NORMAL;
+                float4 tangentOS : TANGENT;
                 float2 uv : TEXCOORD0;
-				float2 staticLightmapUV : TEXCOORD1;
-				float2 dynamicLightmapUV : TEXCOORD2;
-				UNITY_VERTEX_INPUT_INSTANCE_ID
+                float2 staticLightmapUV : TEXCOORD1;
+                float2 dynamicLightmapUV : TEXCOORD2;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
             struct v2f
             {
-				float4 positionCS : SV_POSITION;
-				float4 color : COLOR;
-				float2 uv : TEXCOORD0;
-				float3 affineUV : TEXCOORD1;
-				float fog : TEXCOORD2;
-				float3 normalWS : TEXCOORD3;
-				float3 positionWS : TEXCOORD4;
-				float3 viewWS : TEXCOORD5;
-				DECLARE_LIGHTMAP_OR_SH(staticLightmapUV, vertexSH, 6);
-				float2 dynamicLightmapUV : TEXCOORD7;
-				UNITY_VERTEX_INPUT_INSTANCE_ID
-				UNITY_VERTEX_OUTPUT_STEREO
+                float4 positionCS : SV_POSITION;
+                float4 color : COLOR;
+                float2 uv : TEXCOORD0;
+                float3 affineUV : TEXCOORD1;
+                float fog : TEXCOORD2;
+                float3 normalWS : TEXCOORD3;
+                float3 positionWS : TEXCOORD4;
+                float3 viewWS : TEXCOORD5;
+                DECLARE_LIGHTMAP_OR_SH(staticLightmapUV, vertexSH, 6);
+                float2 dynamicLightmapUV : TEXCOORD7;
+
+                float3 tangentWS : TEXCOORD8;
+                float3 bitangentWS : TEXCOORD9;
+
+                UNITY_VERTEX_INPUT_INSTANCE_ID
+                UNITY_VERTEX_OUTPUT_STEREO
             };
 
-			v2f vert(appdata v)
-			{
-				v2f o = (v2f)0;
-				UNITY_SETUP_INSTANCE_ID(v);
-				UNITY_TRANSFER_INSTANCE_ID(v, o);
-				UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
+            v2f vert(appdata v)
+            {
+                v2f o = (v2f)0;
+                UNITY_SETUP_INSTANCE_ID(v);
+                UNITY_TRANSFER_INSTANCE_ID(v, o);
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
 
-				float4 positionVS = mul(UNITY_MATRIX_MV, v.positionOS);
-				positionVS = floor(positionVS * _SnapsPerUnit) / _SnapsPerUnit;
-				o.positionCS = mul(UNITY_MATRIX_P, positionVS);
+                float4 positionVS = mul(UNITY_MATRIX_MV, v.positionOS);
+                positionVS = floor(positionVS * _SnapsPerUnit) / _SnapsPerUnit;
+                o.positionCS = mul(UNITY_MATRIX_P, positionVS);
 
-				o.uv = TRANSFORM_TEX(v.uv, _BaseMap);
-				o.affineUV = float3(TRANSFORM_TEX(v.uv, _BaseMap) * o.positionCS.w, o.positionCS.w);
-				o.fog = ComputeFogFactor(o.positionCS.z);
-				o.normalWS = TransformObjectToWorldNormal(v.normalOS);
-				o.positionWS = TransformObjectToWorld(v.positionOS.xyz);
-				o.viewWS = GetWorldSpaceNormalizeViewDir(o.positionWS);
-				OUTPUT_SH(o.normalWS, o.vertexSH);
-				OUTPUT_LIGHTMAP_UV(v.staticLightmapUV, unity_LightmapST, o.staticLightmapUV);
-				o.dynamicLightmapUV = v.dynamicLightmapUV.xy * unity_DynamicLightmapST.xy + unity_DynamicLightmapST.zw;
-				o.color = v.color;
+                o.uv = TRANSFORM_TEX(v.uv, _BaseMap);
+                o.affineUV = float3(TRANSFORM_TEX(v.uv, _BaseMap) * o.positionCS.w, o.positionCS.w);
+                o.fog = ComputeFogFactor(o.positionCS.z);
 
-				return o;
-			}
+                float3 nWS = TransformObjectToWorldNormal(v.normalOS);
+                nWS = normalize(nWS);
+                o.normalWS = nWS;
 
-			inline float2x2 invert(float2x2 m)
-			{
-				float det = m[0][0] * m[1][1] - m[0][1] * m[1][0];
+                float3 tWS = TransformObjectToWorldDir(v.tangentOS.xyz);
+                if (dot(tWS, tWS) < 1e-6)
+                {
+                    float3 up = (abs(nWS.y) < 0.999) ? float3(0, 1, 0) : float3(1, 0, 0);
+                    tWS = cross(up, nWS);
+                }
+                tWS = normalize(tWS - nWS * dot(nWS, tWS));
 
-				if(abs(det) < 1e-9)
-				{
-					return float2x2(0, 0, 0, 0);
-				}
+                float tangentSign = (v.tangentOS.w == 0.0 ? 1.0 : v.tangentOS.w) * GetOddNegativeScale();
+                float3 bWS = cross(nWS, tWS) * tangentSign;
 
-				return (1.0f / det) * float2x2(m[1][1], -m[0][1], -m[1][0], m[0][0]);
-			}
+                o.tangentWS = tWS;
+                o.bitangentWS = bWS;
 
-			float4 frag(v2f i, float facing : VFACE) : SV_TARGET
-			{
-				UNITY_SETUP_INSTANCE_ID(i);
-				UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
+                o.positionWS = TransformObjectToWorld(v.positionOS.xyz);
+                o.viewWS = GetWorldSpaceNormalizeViewDir(o.positionWS);
+                OUTPUT_SH(o.normalWS, o.vertexSH);
+                OUTPUT_LIGHTMAP_UV(v.staticLightmapUV, unity_LightmapST, o.staticLightmapUV);
+                o.dynamicLightmapUV = v.dynamicLightmapUV.xy * unity_DynamicLightmapST.xy + unity_DynamicLightmapST.zw;
+                o.color = v.color;
 
-				// Apply resolution limit to the base texture.
-				int targetResolution = (int)log2(_ResolutionLimit);
-				int actualResolution = (int)log2(_BaseMap_TexelSize.zw);
-				int lod = clamp(actualResolution - targetResolution, 0, 10);
+                return o;
+            }
 
-				// Apply affine texture mapping.
-				float2 uv = lerp(i.uv, i.affineUV.xy / i.affineUV.z, _AffineTextureStrength);
+            inline float2x2 invert(float2x2 m)
+            {
+                float det = m[0][0] * m[1][1] - m[0][1] * m[1][0];
+                if (abs(det) < 1e-9) return float2x2(0, 0, 0, 0);
+                return (1.0f / det) * float2x2(m[1][1], -m[0][1], -m[1][0], m[0][0]);
+            }
 
-#if _USE_POINT_FILTER_ON
-				float4 baseColor = _BaseColor * SAMPLE_TEXTURE2D_LOD(_BaseMap, sampler_PointRepeat, uv, lod);
-#else
-				float4 baseColor = _BaseColor * SAMPLE_TEXTURE2D_LOD(_BaseMap, sampler_LinearRepeat, uv, lod);
-#endif
+            float4 frag(v2f i, float facing : VFACE) : SV_TARGET
+            {
+                UNITY_SETUP_INSTANCE_ID(i);
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
 
-#if _USE_VERTEX_COLORS
-				baseColor *= i.color;
-#endif
+                int targetResolution = (int)log2((float)_ResolutionLimit);
+                float texRes = max(_BaseMap_TexelSize.z, _BaseMap_TexelSize.w);
+                int actualResolution = (int)log2(texRes);
+                int lod = clamp(actualResolution - targetResolution, 0, 10);
 
-				// Clip pixels based on alpha.
-#ifdef _ALPHATEST_ON
-				clip(baseColor.a - _Cutoff);
-#endif
+                float2 uv = lerp(i.uv, i.affineUV.xy / i.affineUV.z, _AffineTextureStrength);
 
-				// Posterize the base color.
-				float colorBitDepth = max(2, _ColorBitDepth);
+                #if _USE_POINT_FILTER_ON
+                    float4 baseColor = _BaseColor * SAMPLE_TEXTURE2D_LOD(_BaseMap, sampler_PointRepeat, uv, lod);
+                #else
+                    float4 baseColor = _BaseColor * SAMPLE_TEXTURE2D_LOD(_BaseMap, sampler_LinearRepeat, uv, lod);
+                #endif
 
-				float r = max((baseColor.r - EPSILON) * colorBitDepth, 0.0f);
-				float g = max((baseColor.g - EPSILON) * colorBitDepth, 0.0f);
-				float b = max((baseColor.b - EPSILON) * colorBitDepth, 0.0f);
+                #if _USE_VERTEX_COLORS
+                    baseColor *= i.color;
+                #endif
 
-				float divisor = colorBitDepth - 1.0f;
+                #ifdef _ALPHATEST_ON
+                    clip(baseColor.a - _Cutoff);
+                #endif
 
-				// Apply dithering between posterized colors.
-#if _USE_DITHERING
-				float3 remainders = float3(frac(r), frac(g), frac(b));
-				float3 ditheredColor = saturate(dither(remainders, uv * _BaseMap_TexelSize.zw));
-				ditheredColor = step(0.5f, ditheredColor);
-#else
-				float3 ditheredColor = 0.0f;
-#endif
+                float facingSign = (facing >= 0.0) ? 1.0 : -1.0;
+                float3 nWS = normalize(i.normalWS) * facingSign;
+                float3 tWS = normalize(i.tangentWS) * facingSign;
+                float3 bWS = normalize(i.bitangentWS) * facingSign;
 
-				float3 posterizedColor = float3(floor(r), floor(g), floor(b)) + ditheredColor;
-				posterizedColor /= divisor;
-				posterizedColor += 1.0f / colorBitDepth * _ColorBitDepthOffset;
+                #if _USE_POINT_FILTER_ON
+                    float4 nTex = SAMPLE_TEXTURE2D_LOD(_BumpMap, sampler_PointRepeat, uv, lod);
+                #else
+                    float4 nTex = SAMPLE_TEXTURE2D_LOD(_BumpMap, sampler_LinearRepeat, uv, lod);
+                #endif
 
-				// Find an offset vector in world space to snap lighting calcs to texel grid.
-				// With massive thanks to: https://discussions.unity.com/t/the-quest-for-efficient-per-texel-lighting/700574
-#if _USE_PIXEL_LIGHTING
-				float2 actualTexelSize = min(_ResolutionLimit, _BaseMap_TexelSize.zw);
-				float2 texelUV = floor(uv * actualTexelSize) / actualTexelSize + (0.5f / actualTexelSize);
-				float2 dUV = (texelUV - uv);
+                float3 nTS = UnpackNormalScale(nTex, _BumpScale);
+                float3 normalDir = normalize(tWS * nTS.x + bWS * nTS.y + nWS * nTS.z);
 
-				// Construct matrix to get from a texel-aligned space to UV space.
-				float2 ddxUV = ddx(uv);
-				float2 ddyUV = ddy(uv);
-				float2x2 texelToUVSpace = invert(float2x2(ddxUV.x, ddyUV.x, ddxUV.y, ddyUV.y));
+                float colorBitDepth = max(2, _ColorBitDepth);
 
-				// Get deltas along UV space.
-				float2 uvDeltas = mul(texelToUVSpace, dUV);
+                float r = max((baseColor.r - EPSILON) * colorBitDepth, 0.0f);
+                float g = max((baseColor.g - EPSILON) * colorBitDepth, 0.0f);
+                float b = max((baseColor.b - EPSILON) * colorBitDepth, 0.0f);
 
-				// Apply those deltas in world space along surface directions.
-				float3 ddxWorldPos = ddx(i.positionWS);
-				float3 ddyWorldPos = ddy(i.positionWS);
+                float divisor = colorBitDepth - 1.0f;
 
-				float3 positionWS = i.positionWS + clamp(ddxWorldPos * uvDeltas.x + ddyWorldPos * uvDeltas.y, -1.0f, 1.0f);
-#else
-				float3 positionWS = i.positionWS;
-#endif
+                #if _USE_DITHERING
+                    float3 remainders = float3(frac(r), frac(g), frac(b));
+                    float3 ditheredColor = saturate(dither(remainders, uv * _BaseMap_TexelSize.zw));
+                    ditheredColor = step(0.5f, ditheredColor);
+                #else
+                    float3 ditheredColor = 0.0f;
+                #endif
 
-				float4 shadowCoord = TransformWorldToShadowCoord(positionWS);
-				float4 shadowMask = SAMPLE_SHADOWMASK(i.dynamicLightmapUV);
+                float3 posterizedColor = float3(floor(r), floor(g), floor(b)) + ditheredColor;
+                posterizedColor /= divisor;
+                posterizedColor += 1.0f / colorBitDepth * _ColorBitDepthOffset;
 
-				// Apply the main light.
-				Light light = GetMainLight(shadowCoord);
+                #if _USE_PIXEL_LIGHTING
+                    float2 actualTexelSize = min((float)_ResolutionLimit, _BaseMap_TexelSize.zw);
+                    float2 texelUV = floor(uv * actualTexelSize) / actualTexelSize + (0.5f / actualTexelSize);
+                    float2 dUV = (texelUV - uv);
 
-				float3 normalDir = normalize(i.normalWS * facing);
-				float lightAmount = saturate(dot(normalDir, light.direction) * light.distanceAttenuation * light.shadowAttenuation);
-#if _USE_AMBIENT_OVERRIDE
-				float3 lightColor = lerp(_AmbientLight, 1.0f, lightAmount) * light.color;
-#else
-				float3 lightColor = lerp(SampleSH(normalDir), 1.0f, lightAmount) * light.color;
-#endif
+                    float2 ddxUV = ddx(uv);
+                    float2 ddyUV = ddy(uv);
+                    float2x2 texelToUVSpace = invert(float2x2(ddxUV.x, ddyUV.x, ddxUV.y, ddyUV.y));
+                    float2 uvDeltas = mul(texelToUVSpace, dUV);
 
-#if DYNAMICLIGHTMAP_ON
-				float3 bakedGI = SAMPLE_GI(i.staticLightmapUV, i.dynamicLightmapUV, i.vertexSH, normalDir);
-#else
-				float3 bakedGI = SAMPLE_GI(i.staticLightmapUV, i.vertexSH, normalDir);
-#endif
+                    float3 ddxWorldPos = ddx(i.positionWS);
+                    float3 ddyWorldPos = ddy(i.positionWS);
 
-#ifdef _DBUFFER
-                float3 specular = 0;
-                float metallic = 0;
-                float occlusion = 0;
-                float smoothness = 0;
-                float3 norm = normalDir;
-                ApplyDecal(i.positionCS, posterizedColor, specular, norm, metallic, occlusion, smoothness);
-#endif
+                    float3 positionWS = i.positionWS + clamp(ddxWorldPos * uvDeltas.x + ddyWorldPos * uvDeltas.y, -1.0f, 1.0f);
+                #else
+                    float3 positionWS = i.positionWS;
+                #endif
 
-#ifdef _ADDITIONAL_LIGHTS
+                float4 shadowCoord = TransformWorldToShadowCoord(positionWS);
+                float4 shadowMask = SAMPLE_SHADOWMASK(i.dynamicLightmapUV);
 
-				// Apply secondary lights.
-				uint pixelLightCount = GetAdditionalLightsCount();
+                Light light = GetMainLight(shadowCoord);
+                float lightAmount = saturate(dot(normalDir, light.direction) * light.distanceAttenuation * light.shadowAttenuation);
 
-				InputData inputData = (InputData)0;
-				inputData.positionWS = positionWS;
-				inputData.normalWS = i.normalWS;
-				inputData.viewDirectionWS = GetWorldSpaceNormalizeViewDir(positionWS);
-				inputData.shadowCoord = shadowCoord;
-				inputData.normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(i.positionCS);
+                #if _USE_AMBIENT_OVERRIDE
+                    float3 lightColor = lerp(_AmbientLight, 1.0f, lightAmount) * light.color;
+                #else
+                    float3 lightColor = lerp(SampleSH(normalDir), 1.0f, lightAmount) * light.color;
+                #endif
 
-#if USE_FORWARD_PLUS
+                #if DYNAMICLIGHTMAP_ON
+                    float3 bakedGI = SAMPLE_GI(i.staticLightmapUV, i.dynamicLightmapUV, i.vertexSH, normalDir);
+                #else
+                    float3 bakedGI = SAMPLE_GI(i.staticLightmapUV, i.vertexSH, normalDir);
+                #endif
 
-				// Apply secondary lights (Forward+ rendering).
-				for (uint lightIndex = 0; lightIndex < min(URP_FP_DIRECTIONAL_LIGHTS_COUNT, MAX_VISIBLE_LIGHTS); lightIndex++) 
-				{
-					FORWARD_PLUS_SUBTRACTIVE_LIGHT_CHECK
+                #ifdef _DBUFFER
+                    float3 specular = 0;
+                    float metallic = 0;
+                    float occlusion = 0;
+                    float smoothness = 0;
+                    float3 norm = normalDir;
+                    ApplyDecal(i.positionCS, posterizedColor, specular, norm, metallic, occlusion, smoothness);
+                #endif
 
-					Light light = GetAdditionalLight(lightIndex, positionWS, shadowMask);
+                #ifdef _ADDITIONAL_LIGHTS
+                    uint pixelLightCount = GetAdditionalLightsCount();
 
-					float3 color = saturate(dot(light.direction, normalDir)) * light.color;
-					color *= light.distanceAttenuation;
-					color *= light.shadowAttenuation;
+                    InputData inputData = (InputData)0;
+                    inputData.positionWS = positionWS;
+                    inputData.normalWS = normalDir;
+                    inputData.viewDirectionWS = GetWorldSpaceNormalizeViewDir(positionWS);
+                    inputData.shadowCoord = shadowCoord;
+                    inputData.normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(i.positionCS);
 
-					lightColor += color;
-				}
-#endif
+                    #if USE_FORWARD_PLUS
+                        for (uint lightIndex = 0; lightIndex < min(URP_FP_DIRECTIONAL_LIGHTS_COUNT, MAX_VISIBLE_LIGHTS); lightIndex++)
+                        {
+                            FORWARD_PLUS_SUBTRACTIVE_LIGHT_CHECK
+                            Light l = GetAdditionalLight(lightIndex, positionWS, shadowMask);
 
-				// Apply secondary lights (Forward rendering).
-				LIGHT_LOOP_BEGIN(pixelLightCount)
-					Light light = GetAdditionalLight(lightIndex, positionWS, shadowMask);
+                            float3 c = saturate(dot(l.direction, normalDir)) * l.color;
+                            c *= l.distanceAttenuation;
+                            c *= l.shadowAttenuation;
 
-					float3 color = saturate(dot(light.direction, normalDir)) * light.color;
-					color *= light.distanceAttenuation;
-					color *= light.shadowAttenuation;
+                            lightColor += c;
+                        }
+                    #endif
 
-					lightColor += color;
-				LIGHT_LOOP_END
-			
-#endif
+                    LIGHT_LOOP_BEGIN(pixelLightCount)
+                        Light l = GetAdditionalLight(lightIndex, positionWS, shadowMask);
 
-				lightColor += bakedGI;
+                        float3 c = saturate(dot(l.direction, normalDir)) * l.color;
+                        c *= l.distanceAttenuation;
+                        c *= l.shadowAttenuation;
 
-				// Combine everything.
-				float3 finalColor = posterizedColor * lightColor;
-				finalColor = MixFog(finalColor, i.fog);
+                        lightColor += c;
+                    LIGHT_LOOP_END
+                #endif
 
-				return float4(finalColor, baseColor.a);
-			}
+                lightColor += bakedGI;
+
+                float3 finalColor = posterizedColor * lightColor;
+
+                // ===== Rim Light (ADD, как эмиссия) =====
+                #ifdef _RIM_ON
+                {
+                    float3 n = normalize(normalDir);
+                    float3 v = SafeNormalize(GetWorldSpaceViewDir(positionWS));
+
+                    float rim = 1.0 - saturate(dot(n, v));
+                    rim = pow(rim, max(_RimPower, 0.0001));
+
+                    finalColor += _RimColor.rgb * (rim * _RimIntensity) * _RimColor.a;
+                }
+                #endif
+                // =======================================
+
+                finalColor = MixFog(finalColor, i.fog);
+                return float4(finalColor, baseColor.a);
+            }
             ENDHLSL
         }
 
-		Pass
-		{
-			Name "ShadowCaster"
+        // =========================
+        // ===== OUTLINE PASS =======
+        // =========================
+        Pass
+        {
+            Name "Outline"
+            Tags { "LightMode" = "Outline" }
 
-			Tags
-			{
-				"LightMode" = "ShadowCaster"
-			}
+            Cull Front
+            ZWrite Off
+            ZTest LEqual
+            Offset 1, 1
+            Blend SrcAlpha OneMinusSrcAlpha
 
-			ZWrite On
-			ZTest LEqual
-			ColorMask 0
-			Cull[_Cull]
+            HLSLPROGRAM
+            #pragma vertex outlineVert
+            #pragma fragment outlineFrag
+            #pragma target 3.0
 
-			HLSLPROGRAM
-			#pragma vertex shadowPassVert
-			#pragma fragment shadowPassFrag
+            #pragma multi_compile_instancing
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
 
-			#pragma multi_compile_instancing
-			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+            #pragma shader_feature_local _OUTLINE_ON
+            #pragma shader_feature_local_fragment _ALPHATEST_ON
+            #pragma shader_feature_local_fragment _USE_POINT_FILTER_ON
+            #pragma shader_feature_local_fragment _USE_VERTEX_COLORS
 
-			#pragma multi_compile_vertex _ _CASTING_PUNCTUAL_LIGHT_SHADOW
-			#pragma shader_feature_local_fragment _ALPHATEST_ON
-			#pragma shader_feature_local _USE_POINT_FILTER_ON
+            float4 _OutlineColor;
+            float _OutlineWidth;
 
-			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
-			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/CommonMaterial.hlsl"
-			#include "RetroShadowCasterPass.hlsl"
-			ENDHLSL
-		}
+            struct appdata_o
+            {
+                float4 positionOS : POSITION;
+                float4 color : COLOR;
+                float3 normalOS : NORMAL;
+                float2 uv : TEXCOORD0;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
+            };
 
-		Pass
-		{
-			Name "GBuffer"
+            struct v2f_o
+            {
+                float4 positionCS : SV_POSITION;
+                float4 color : COLOR;
+                float2 uv : TEXCOORD0;
+                float3 affineUV : TEXCOORD1;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
+                UNITY_VERTEX_OUTPUT_STEREO
+            };
 
-			Tags
-			{
-				"LightMode" = "UniversalGBuffer"
-			}
+            v2f_o outlineVert(appdata_o v)
+            {
+                v2f_o o = (v2f_o)0;
+                UNITY_SETUP_INSTANCE_ID(v);
+                UNITY_TRANSFER_INSTANCE_ID(v, o);
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
 
-			ZWrite[_ZWrite]
-			ZTest LEqual
-			Cull[_Cull]
+                float3 posWS = TransformObjectToWorld(v.positionOS.xyz);
+                float3 nWS   = normalize(TransformObjectToWorldNormal(v.normalOS));
+                posWS += nWS * _OutlineWidth;
 
-			HLSLPROGRAM
-			#pragma target 4.5
-			#pragma exclude_renderers gles3 glcore
+                float4 positionVS = mul(GetWorldToViewMatrix(), float4(posWS, 1.0));
+                positionVS = floor(positionVS * _SnapsPerUnit) / _SnapsPerUnit;
+                o.positionCS = mul(GetViewToHClipMatrix(), positionVS);
 
-			#pragma vertex gBufferVert
-			#pragma fragment gBufferFrag
+                o.uv = TRANSFORM_TEX(v.uv, _BaseMap);
+                o.affineUV = float3(TRANSFORM_TEX(v.uv, _BaseMap) * o.positionCS.w, o.positionCS.w);
+                o.color = v.color;
+                return o;
+            }
 
-			#pragma multi_compile_instancing
-			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+            float4 outlineFrag(v2f_o i) : SV_TARGET
+            {
+                UNITY_SETUP_INSTANCE_ID(i);
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
 
-			#pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
-			#pragma multi_compile _ SHADOWS_SHADOWMASK
-			#pragma multi_compile_fragment _ _SHADOWS_SOFT
+            #ifndef _OUTLINE_ON
+                clip(-1);
+            #endif
 
-			#pragma multi_compile _ LIGHTMAP_ON
-			#pragma multi_compile _ DIRLIGHTMAP_COMBINED                       
-			#pragma multi_compile _ LIGHTMAP_SHADOW_MIXING
-			#pragma multi_compile _ DYNAMICLIGHTMAP_ON
+            #ifdef _ALPHATEST_ON
+                int targetResolution = (int)log2((float)_ResolutionLimit);
+                float texRes = max(_BaseMap_TexelSize.z, _BaseMap_TexelSize.w);
+                int actualResolution = (int)log2(texRes);
+                int lod = clamp(actualResolution - targetResolution, 0, 10);
 
-			#pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
+                float2 uv = lerp(i.uv, i.affineUV.xy / i.affineUV.z, _AffineTextureStrength);
 
-			#pragma shader_feature_local_fragment _ALPHATEST_ON
-			#pragma shader_feature_local _USE_POINT_FILTER_ON
-			#pragma shader_feature_local _USE_DITHERING
+            #if _USE_POINT_FILTER_ON
+                float4 baseColor = _BaseColor * SAMPLE_TEXTURE2D_LOD(_BaseMap, sampler_PointRepeat, uv, lod);
+            #else
+                float4 baseColor = _BaseColor * SAMPLE_TEXTURE2D_LOD(_BaseMap, sampler_LinearRepeat, uv, lod);
+            #endif
 
-			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
-			#include "RetroGBufferPass.hlsl"
+            #if _USE_VERTEX_COLORS
+                baseColor *= i.color;
+            #endif
 
-			ENDHLSL
-		}
+                clip(baseColor.a - _Cutoff);
+            #endif
 
-		Pass
-		{
-			Name "DepthOnly"
+                return _OutlineColor;
+            }
+            ENDHLSL
+        }
 
-			Tags
-			{
-				"LightMode" = "DepthOnly"
-			}
+        Pass
+        {
+            Name "ShadowCaster"
+            Tags { "LightMode" = "ShadowCaster" }
 
-			ZWrite On
-			ColorMask R
-			Cull[_Cull]
+            ZWrite On
+            ZTest LEqual
+            ColorMask 0
+            Cull[_Cull]
 
-			HLSLPROGRAM
-			#pragma target 2.0
-			#pragma vertex depthOnlyVert
-			#pragma fragment depthOnlyFrag
+            HLSLPROGRAM
+            #pragma vertex shadowPassVert
+            #pragma fragment shadowPassFrag
 
-			#pragma multi_compile_instancing
-			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+            #pragma multi_compile_instancing
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
 
-			#pragma shader_feature_local_fragment _ALPHATEST_ON
-			#pragma shader_feature_local _USE_POINT_FILTER_ON
+            #pragma multi_compile_vertex _ _CASTING_PUNCTUAL_LIGHT_SHADOW
+            #pragma shader_feature_local_fragment _ALPHATEST_ON
+            #pragma shader_feature_local _USE_POINT_FILTER_ON
 
-			#include "RetroSurfaceInput.hlsl"
-			#include "RetroDepthOnlyPass.hlsl"
+            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/CommonMaterial.hlsl"
+            #include "RetroShadowCasterPass.hlsl"
+            ENDHLSL
+        }
 
-			ENDHLSL
-		}
+        Pass
+        {
+            Name "GBuffer"
+            Tags { "LightMode" = "UniversalGBuffer" }
 
-		Pass
-		{
-			Name "DepthNormals"
+            ZWrite[_ZWrite]
+            ZTest LEqual
+            Cull[_Cull]
 
-			Tags
-			{
-				"LightMode" = "DepthNormals"
-			}
+            HLSLPROGRAM
+            #pragma target 4.5
+            #pragma exclude_renderers gles3 glcore
 
-			ZWrite On
-			Cull[_Cull]
+            #pragma vertex gBufferVert
+            #pragma fragment gBufferFrag
 
-			HLSLPROGRAM
-			#pragma target 2.0
-			#pragma vertex depthNormalsVert
-			#pragma fragment depthNormalsFrag
+            #pragma multi_compile_instancing
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
 
-			#pragma multi_compile_instancing
-			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
+            #pragma multi_compile _ SHADOWS_SHADOWMASK
+            #pragma multi_compile_fragment _ _SHADOWS_SOFT
 
-			#pragma shader_feature_local_fragment _ALPHATEST_ON
-			#pragma shader_feature_local _USE_POINT_FILTER_ON
+            #pragma multi_compile _ LIGHTMAP_ON
+            #pragma multi_compile _ DIRLIGHTMAP_COMBINED
+            #pragma multi_compile _ LIGHTMAP_SHADOW_MIXING
+            #pragma multi_compile _ DYNAMICLIGHTMAP_ON
 
-			#include "RetroDepthNormalsPass.hlsl"
-			ENDHLSL
-		}
+            #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
 
-		Pass
-		{
-			Name "Meta"
+            #pragma shader_feature_local_fragment _ALPHATEST_ON
+            #pragma shader_feature_local _USE_POINT_FILTER_ON
+            #pragma shader_feature_local _USE_DITHERING
 
-			Tags
-			{
-				"LightMode" = "Meta"
-			}
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            #include "RetroGBufferPass.hlsl"
+            ENDHLSL
+        }
 
-			Cull Off
+        Pass
+        {
+            Name "DepthOnly"
+            Tags { "LightMode" = "DepthOnly" }
 
-			HLSLPROGRAM
-			#pragma target 2.0
-			#pragma vertex metaVert
-			#pragma fragment metaFrag
+            ZWrite On
+            ColorMask R
+            Cull[_Cull]
 
-			#pragma shader_feature_local_fragment _ALPHATEST_ON
-			#pragma shader_feature_local _USE_POINT_FILTER_ON
-			#pragma shader_feature_local _USE_DITHERING
-			#pragma shader_feature EDITOR_VISUALIZATION
+            HLSLPROGRAM
+            #pragma target 2.0
+            #pragma vertex depthOnlyVert
+            #pragma fragment depthOnlyFrag
 
-			#include "RetroMetaPass.hlsl"
-			ENDHLSL
-		}
+            #pragma multi_compile_instancing
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+
+            #pragma shader_feature_local_fragment _ALPHATEST_ON
+            #pragma shader_feature_local _USE_POINT_FILTER_ON
+
+            #include "RetroSurfaceInput.hlsl"
+            #include "RetroDepthOnlyPass.hlsl"
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "DepthNormals"
+            Tags { "LightMode" = "DepthNormals" }
+
+            ZWrite On
+            Cull[_Cull]
+
+            HLSLPROGRAM
+            #pragma target 2.0
+            #pragma vertex depthNormalsVert
+            #pragma fragment depthNormalsFrag
+
+            #pragma multi_compile_instancing
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+
+            #pragma shader_feature_local_fragment _ALPHATEST_ON
+            #pragma shader_feature_local _USE_POINT_FILTER_ON
+
+            #include "RetroDepthNormalsPass.hlsl"
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "Meta"
+            Tags { "LightMode" = "Meta" }
+
+            Cull Off
+
+            HLSLPROGRAM
+            #pragma target 2.0
+            #pragma vertex metaVert
+            #pragma fragment metaFrag
+
+            #pragma shader_feature_local_fragment _ALPHATEST_ON
+            #pragma shader_feature_local _USE_POINT_FILTER_ON
+            #pragma shader_feature_local _USE_DITHERING
+            #pragma shader_feature EDITOR_VISUALIZATION
+
+            #include "RetroMetaPass.hlsl"
+            ENDHLSL
+        }
     }
 
-	CustomEditor "RetroShadersPro.URP.RetroLitShaderGUI"
+    CustomEditor "RetroShadersPro.URP.RetroLitShaderGUI"
 }
