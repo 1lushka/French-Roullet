@@ -52,6 +52,8 @@ MonoBehaviour:
   syncInterval: 0
   typeA: {fileID: 5748246634807481640}
   typeB: {fileID: 4657853680419690265}
+  typeAHandAnimator: {fileID: 0}
+  typeBHandAnimator: {fileID: 0}
   cameras:
   - {fileID: 2541933817279396944}
   - {fileID: 5817667792837247095}
@@ -314,7 +316,7 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
-  cam: {fileID: 0}
+  cam: {fileID: 1425603745449003292}
   targetTag: Knife
   xMin: -5
   xMax: 5

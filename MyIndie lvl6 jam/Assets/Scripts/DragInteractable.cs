@@ -64,7 +64,7 @@ public abstract class DragInteractable : NetworkBehaviour
         {
             if (hit.collider.CompareTag(targetTag))
             {
-                draggedObject = hit.collider.transform.parent;
+                draggedObject = hit.collider.transform;
                 zOffset = cam.WorldToScreenPoint(draggedObject.position).z;
 
                 originalY = draggedObject.position.y;
