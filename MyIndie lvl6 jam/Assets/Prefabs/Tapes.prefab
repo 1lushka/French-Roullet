@@ -73,6 +73,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: aeb82e24096e5be43b6f6a3d79122c36, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  syncDirection: 0
+  syncMode: 0
+  syncInterval: 0
   manager: {fileID: 2282760610219021836}
   leftAnchor: {fileID: 0}
   rightAnchor: {fileID: 0}
@@ -92,7 +95,7 @@ MonoBehaviour:
   deathTrigger: Death
   DeathAudioSource: {fileID: 0}
   giliotina: {fileID: 8300000, guid: c215c89659d989e4cba0754b0188bea9, type: 3}
-  HeadCut: {fileID: 8300000, guid: b8f72e6a524781b4195d9c786e740d47, type: 3}
+  headCut: {fileID: 0}
 --- !u!1001 &503447219342307176
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -101,6 +104,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 6891710276715862748}
     m_Modifications:
+    - target: {fileID: 482868847965864596, guid: 0f83bf53a8614154a82fff15412b0546, type: 3}
+      propertyPath: _assetId
+      value: 976308598
+      objectReference: {fileID: 0}
     - target: {fileID: 1258458262275599349, guid: 0f83bf53a8614154a82fff15412b0546, type: 3}
       propertyPath: _assetId
       value: 976308598
@@ -182,6 +189,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 6891710276715862748}
     m_Modifications:
+    - target: {fileID: 482868847965864596, guid: 0f83bf53a8614154a82fff15412b0546, type: 3}
+      propertyPath: _assetId
+      value: 976308598
+      objectReference: {fileID: 0}
     - target: {fileID: 1258458262275599349, guid: 0f83bf53a8614154a82fff15412b0546, type: 3}
       propertyPath: _assetId
       value: 976308598
@@ -263,6 +274,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 6891710276715862748}
     m_Modifications:
+    - target: {fileID: 482868847965864596, guid: 0f83bf53a8614154a82fff15412b0546, type: 3}
+      propertyPath: _assetId
+      value: 976308598
+      objectReference: {fileID: 0}
     - target: {fileID: 1258458262275599349, guid: 0f83bf53a8614154a82fff15412b0546, type: 3}
       propertyPath: _assetId
       value: 976308598
@@ -344,6 +359,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 6891710276715862748}
     m_Modifications:
+    - target: {fileID: 482868847965864596, guid: 0f83bf53a8614154a82fff15412b0546, type: 3}
+      propertyPath: _assetId
+      value: 976308598
+      objectReference: {fileID: 0}
     - target: {fileID: 1258458262275599349, guid: 0f83bf53a8614154a82fff15412b0546, type: 3}
       propertyPath: _assetId
       value: 976308598
@@ -425,6 +444,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 6891710276715862748}
     m_Modifications:
+    - target: {fileID: 482868847965864596, guid: 0f83bf53a8614154a82fff15412b0546, type: 3}
+      propertyPath: _assetId
+      value: 976308598
+      objectReference: {fileID: 0}
     - target: {fileID: 1258458262275599349, guid: 0f83bf53a8614154a82fff15412b0546, type: 3}
       propertyPath: _assetId
       value: 976308598
@@ -506,6 +529,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 6891710276715862748}
     m_Modifications:
+    - target: {fileID: 482868847965864596, guid: 0f83bf53a8614154a82fff15412b0546, type: 3}
+      propertyPath: _assetId
+      value: 976308598
+      objectReference: {fileID: 0}
     - target: {fileID: 1258458262275599349, guid: 0f83bf53a8614154a82fff15412b0546, type: 3}
       propertyPath: _assetId
       value: 976308598
