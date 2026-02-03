@@ -1,5 +1,6 @@
 using UnityEngine;
 using Mirror;
+using System.Collections;
 
 public class RopesAttachOnDeath : NetworkBehaviour
 {
@@ -18,9 +19,7 @@ public class RopesAttachOnDeath : NetworkBehaviour
     [SerializeField] private bool worldPositionStays = true;
     [SerializeField] private bool equalGoesRight = false;
 
-    private bool _done;
-
-    [SerializeField] private Vector2 postZeroDelayRange = new Vector2(0.4f, 1.2f);
+    [SerializeField] private Vector2 postZeroDelayRange = new Vector2(0.4f, 0.5f);
     [SerializeField] private float leftMoveSpeed = 2.5f;
 
     [Header("Àíèìàöèÿ ñìåðòè")]
@@ -32,11 +31,9 @@ public class RopesAttachOnDeath : NetworkBehaviour
     [SerializeField] private AudioClip giliotina;
     [SerializeField] private AudioClip headCut;
 
+    private bool _done;
     private bool _moveLeftActive;
 
-    // ------------------------------------------------------------
-    //                     ÇÂÓÊÎÂÎÉ ÐÅÅÑÒÐ
-    // ------------------------------------------------------------
     private enum SoundID : byte
     {
         HeadCut = 1,
@@ -45,15 +42,14 @@ public class RopesAttachOnDeath : NetworkBehaviour
 
     private AudioClip GetClipByID(SoundID id)
     {
-        switch (id)
+        return id switch
         {
-            case SoundID.HeadCut: return headCut;
-            case SoundID.Giliotina: return giliotina;
-            default: return null;
-        }
+            SoundID.HeadCut => headCut,
+            SoundID.Giliotina => giliotina,
+            _ => null
+        };
     }
 
-    // ------------------------------------------------------------
     private void Awake()
     {
         if (manager == null)
@@ -80,14 +76,14 @@ public class RopesAttachOnDeath : NetworkBehaviour
             manager.OnFirstHit0 -= HandleFirstZeroServer;
     }
 
-    // ------------------------------------------------------------
-    //            ÑÐÀÁÎÒÀË ÍÓËÅÂÎÉ ÏÎÐÎÃ (ÒÎËÜÊÎ ÑÅÐÂÅÐ)
-    // ------------------------------------------------------------
+    // =============================
+    // SERVER: Âåð¸âêà ñëîìàíà
+    // =============================
+
     [Server]
     private void HandleFirstZeroServer(TapePiece destroyed)
     {
-        if (!isServer) return;
-        if (_done || destroyed == null || leftAnchor == null || rightAnchor == null) return;
+        if (_done || destroyed == null) return;
 
         _done = true;
 
@@ -97,51 +93,52 @@ public class RopesAttachOnDeath : NetworkBehaviour
         {
             if (r == null || r == destroyed) continue;
 
-            float x = r.transform.position.x;
+            bool goRight = r.transform.position.x > pivotX ||
+                           (Mathf.Approximately(r.transform.position.x, pivotX) && equalGoesRight);
 
-            bool goRight = x > pivotX || (Mathf.Approximately(x, pivotX) && equalGoesRight);
-            var targetParent = goRight ? rightAnchor : leftAnchor;
+            var target = goRight ? rightAnchor : leftAnchor;
 
-            r.transform.SetParent(targetParent, worldPositionStays);
+            r.transform.SetParent(target, worldPositionStays);
         }
 
         StartCoroutine(PostZeroSequenceServer(destroyed));
     }
 
-    // ------------------------------------------------------------
-    //                ÏÎÑËÅÄÎÂÀÒÅËÜÍÎÑÒÜ ÏÎÑËÅ ÍÓËß
-    // ------------------------------------------------------------
+    // =============================
+    // SERVER: Êàçíü
+    // =============================
+
     [Server]
-    private System.Collections.IEnumerator PostZeroSequenceServer(TapePiece destroyed)
+    private IEnumerator PostZeroSequenceServer(TapePiece destroyed)
     {
-        // RPC: çâóê 1
         RpcPlayOneShot(SoundID.HeadCut);
 
-        float delay = Random.Range(postZeroDelayRange.x, postZeroDelayRange.y);
-        if (delay > 0f) yield return new WaitForSeconds(delay);
+        yield return new WaitForSeconds(Random.Range(postZeroDelayRange.x, postZeroDelayRange.y));
 
-        // Óäàëÿåì óíè÷òîæåííóþ âåð¸âêó
         if (destroyed != null)
             NetworkServer.Destroy(destroyed.gameObject);
 
-        // Íà÷èíàåì äâèæåíèå
         _moveLeftActive = true;
 
-        // RPC: çâóê 2
         RpcPlayOneShot(SoundID.Giliotina);
 
-        // RPC: àíèìàöèÿ ñìåðòè
         if (!string.IsNullOrEmpty(deathTrigger))
             RpcSetAnimatorTrigger(deathTrigger);
+
+        // ======= ÏÎÁÅÄÀ ÏÀËÀ×À =======
+        if (GameManager.Instance != null)
+            GameManager.Instance.PalachWin();
     }
 
-    // ------------------------------------------------------------
-    //                   RPC ÀÓÄÈÎ / ÀÍÈÌÀÖÈÈ
-    // ------------------------------------------------------------
+    // =============================
+    // RPC
+    // =============================
+
     [ClientRpc]
     private void RpcPlayOneShot(SoundID clipID)
     {
         var clip = GetClipByID(clipID);
+
         if (DeathAudioSource != null && clip != null)
             DeathAudioSource.PlayOneShot(clip);
     }
@@ -153,14 +150,20 @@ public class RopesAttachOnDeath : NetworkBehaviour
             deathAnimator.SetTrigger(trigger);
     }
 
-    // ------------------------------------------------------------
-    //              ÄÂÈÆÅÍÈÅ ÂËÅÂÎ (ÒÎËÜÊÎ ÑÅÐÂÅÐ)
-    // ------------------------------------------------------------
+    // =============================
+    // SERVER MOVE
+    // =============================
+
     private void Update()
     {
         if (!isServer) return;
 
-        if (_moveLeftActive && leftAnchor != null && leftMoveSpeed > 0f)
-            leftAnchor.Translate(Vector3.left * leftMoveSpeed * Time.deltaTime, Space.World);
+        if (_moveLeftActive && leftAnchor != null)
+        {
+            leftAnchor.Translate(
+                Vector3.left * leftMoveSpeed * Time.deltaTime,
+                Space.World
+            );
+        }
     }
 }
