@@ -2,54 +2,55 @@ using UnityEngine;
 
 public class HoverOutline : MonoBehaviour
 {
-    [SerializeField] Camera cam;
-    [SerializeField] LayerMask mask = ~0;
-    [SerializeField] float maxDist = 100f;
-    [SerializeField] string targetTag = "Shield";
+    [Header("Raycast")]
+    [SerializeField] private Camera cam;
+    [SerializeField] private LayerMask mask = ~0;
+    [SerializeField] private float maxDist = 100f;
+    //[SerializeField] private string targetTag = "Untagged";
 
-    Behaviour current;
+    private Outline currentOutline;
 
-    void Awake()
+    private void Awake()
     {
-        if (!cam) cam = Camera.main;
+        if (cam == null)
+            cam = Camera.main;
     }
 
-    void Update()
+    private void Update()
     {
-        if (!cam) return;
+        if (cam == null) return;
 
-        var ray = cam.ScreenPointToRay(Input.mousePosition);
-        Behaviour next = null;
+        Outline next = null;
 
-        if (Physics.Raycast(ray, out var hit, maxDist, mask) && hit.collider.CompareTag(targetTag))
-            next = FindOutlineOn(hit.collider.transform);
+        Ray ray = cam.ScreenPointToRay(Input.mousePosition);
 
-        if (current == next) return;
-
-        if (current) current.enabled = false;
-        current = next;
-        if (current) current.enabled = true;
-    }
-
-    static Behaviour FindOutlineOn(Transform t)
-    {
-        // Ищем в объекте и родителях любой Behaviour, чей тип содержит "Outline"
-        // (подходит для Outline, QuickOutline, кастомных Outline-компонентов)
-        var list = t.GetComponentsInParent<Behaviour>(true);
-        for (int i = 0; i < list.Length; i++)
+        if (Physics.Raycast(ray, out RaycastHit hit, maxDist, mask))
         {
-            var b = list[i];
-            if (!b) continue;
-            var n = b.GetType().Name;
-            if (n == "Outline" || n == "QuickOutline" || n.Contains("Outline"))
-                return b;
+            
+                next = hit.collider.GetComponentInParent<Outline>();
+            
         }
-        return null;
+
+        // Если не изменилось — ничего не делаем
+        if (currentOutline == next)
+            return;
+
+        // Выключаем старый
+        if (currentOutline != null)
+            currentOutline.enabled = false;
+
+        currentOutline = next;
+
+        // Включаем новый
+        if (currentOutline != null)
+            currentOutline.enabled = true;
     }
 
-    void OnDisable()
+    private void OnDisable()
     {
-        if (current) current.enabled = false;
-        current = null;
+        if (currentOutline != null)
+            currentOutline.enabled = false;
+
+        currentOutline = null;
     }
 }

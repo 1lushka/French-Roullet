@@ -264,7 +264,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   maxDist: 100
-  targetTag: Shield
+  targetTag: Untagged
 --- !u!1 &4657853680419690265
 GameObject:
   m_ObjectHideFlags: 0
@@ -719,10 +719,23 @@ PrefabInstance:
       propertyPath: m_LocalRotation.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 8459764286580615439, guid: 68c9e73327e46ee478ccb9fda953f3de, type: 3}
+      propertyPath: targetTag
+      value: Untagged
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 4844365593918693838, guid: 68c9e73327e46ee478ccb9fda953f3de, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7873832275349017967}
+    - targetCorrespondingSourceObject: {fileID: 4844365593918693838, guid: 68c9e73327e46ee478ccb9fda953f3de, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 3082674754204705996}
+    - targetCorrespondingSourceObject: {fileID: 4844365593918693838, guid: 68c9e73327e46ee478ccb9fda953f3de, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8821197593135919965}
   m_SourcePrefab: {fileID: 100100000, guid: 68c9e73327e46ee478ccb9fda953f3de, type: 3}
 --- !u!20 &516555148018901796 stripped
 Camera:
@@ -734,6 +747,60 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 4844365593918693838, guid: 68c9e73327e46ee478ccb9fda953f3de, type: 3}
   m_PrefabInstance: {fileID: 6952545731166625182}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &7873832275349017967
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2541933817279396944}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9feaa90672f0d8c449609053dced461f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  cam: {fileID: 0}
+  mask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  maxDist: 100
+  targetTag: Shield
+--- !u!114 &3082674754204705996
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2541933817279396944}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9feaa90672f0d8c449609053dced461f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  cam: {fileID: 0}
+  mask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  maxDist: 100
+  targetTag: Shield
+--- !u!114 &8821197593135919965
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2541933817279396944}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9feaa90672f0d8c449609053dced461f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  cam: {fileID: 0}
+  mask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  maxDist: 100
+  targetTag: Shield
 --- !u!4 &7092061770513836041 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 148749746662716823, guid: 68c9e73327e46ee478ccb9fda953f3de, type: 3}
@@ -809,11 +876,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4881982100445223047, guid: 3b1efaf4fe3e97041a19b7960d8927d1, type: 3}
       propertyPath: m_LocalRotation.y
-      value: -0
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4881982100445223047, guid: 3b1efaf4fe3e97041a19b7960d8927d1, type: 3}
       propertyPath: m_LocalRotation.z
-      value: -0
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4881982100445223047, guid: 3b1efaf4fe3e97041a19b7960d8927d1, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
