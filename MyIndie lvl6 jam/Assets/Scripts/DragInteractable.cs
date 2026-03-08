@@ -1,4 +1,4 @@
-using UnityEngine;
+п»їusing UnityEngine;
 using DG.Tweening;
 using Mirror;
 
@@ -59,6 +59,8 @@ public abstract class DragInteractable : NetworkBehaviour
 
     private void TryPickObject()
     {
+        if (draggedObject != null) return; // в†ђ С„РёРєСЃ РґРІРѕР№РЅРѕРіРѕ РїРѕРґРЅСЏС‚РёСЏ
+
         Ray ray = cam.ScreenPointToRay(Input.mousePosition);
         if (Physics.Raycast(ray, out RaycastHit hit))
         {
@@ -79,9 +81,7 @@ public abstract class DragInteractable : NetworkBehaviour
                     .DOMoveY(originalY + hoverHeight, liftDuration)
                     .SetEase(liftEase)
                     .SetLink(draggedObject.gameObject, LinkBehaviour.KillOnDestroy);
-                    //.OnUpdate(() => ObjectMover.MoveTo(draggedObject, draggedObject.position));
 
-                // вызываем абстрактный метод для разных типов объектов (щит/нож)
                 StartHoldingAnimation(draggedObject);
             }
         }
