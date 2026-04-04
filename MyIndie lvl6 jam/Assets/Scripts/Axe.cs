@@ -24,7 +24,7 @@ public class Axe : MonoBehaviour
     [SerializeField] private float hitCooldown = 0.3f;
 
     private bool isThrown = false;
-    private Animator anim;
+    //private Animator anim;
     private float currentSpeed;
     private TrailRenderer trail;
     private float lastHitTime = -999f;
@@ -33,7 +33,7 @@ public class Axe : MonoBehaviour
     private void Awake()
     {
         arcStart = transform.position;
-        anim = GetComponent<Animator>();
+        //anim = GetComponent<Animator>();
         trail = GetComponent<TrailRenderer>();
         if (trail == null)
             trail = GetComponentInChildren<TrailRenderer>();
@@ -46,7 +46,7 @@ public class Axe : MonoBehaviour
 
     public void Throw()
     {
-        if (anim) anim.SetBool("Flying", true);
+        //if (anim) anim.SetBool("Flying", true);
 
         isThrown = true;
         currentSpeed = startSpeed;
@@ -79,11 +79,11 @@ public class Axe : MonoBehaviour
         if (trail != null)
             trail.enabled = false;
 
-        if (anim)
-        {
-            anim.SetBool("Flying", false);
-            anim.SetBool("InShield", false);
-        }
+        //if (anim)
+        //{
+        //    anim.SetBool("Flying", false);
+        //    anim.SetBool("InShield", false);
+        //}
 
         TapePiece tape = collision.gameObject.GetComponent<TapePiece>();
         if (tape == null)
@@ -103,8 +103,8 @@ public class Axe : MonoBehaviour
             if (defaultHitParticles != null)
                 Instantiate(defaultHitParticles, collision.contacts[0].point, Quaternion.identity);
 
-            if (anim)
-                anim.SetBool("InShield", true);
+            //if (anim)
+            //    anim.SetBool("InShield", true);
 
 
             PlayRandomSound(shieldHitSounds);

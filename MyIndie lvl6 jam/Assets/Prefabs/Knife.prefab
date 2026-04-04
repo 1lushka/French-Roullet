@@ -49,14 +49,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e1fca3998a4779c4cbd514a6b829c9a1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  startSpeed: 10
-  maxSpeed: 20
-  acceleration: 60
+  startSpeed: 1
+  maxSpeed: 1.5
+  acceleration: 3
   damage: 1
   target: {fileID: 0}
-  arcHeight: 6
-  ropeHitParticles: {fileID: 25173453392198057, guid: f0f9aba5eebe5d64b96d7049fd48440d, type: 3}
-  defaultHitParticles: {fileID: 5576287502626744145, guid: f6576b512519df84488c3dd961445ac3, type: 3}
+  arcHeight: 0.2
+  ropeHitParticles: {fileID: 0}
+  defaultHitParticles: {fileID: 0}
   audioSource: {fileID: 0}
   throwSounds:
   - {fileID: 8300000, guid: 3e7b8021e109e9742b2b3794d9e3b66d, type: 3}
@@ -141,8 +141,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.5, y: 1, z: 4}
-  m_Center: {x: 0, y: 0, z: 2}
+  m_Size: {x: 0.0819788, y: 0.105160475, z: 0.49534607}
+  m_Center: {x: 0.005173683, y: 0.0066740513, z: 1.8757248}
 --- !u!114 &6741391608037782221
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -285,7 +285,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &4145201674653633808
 Transform:
   m_ObjectHideFlags: 0
@@ -295,7 +295,7 @@ Transform:
   m_GameObject: {fileID: 5001172664319545852}
   serializedVersion: 2
   m_LocalRotation: {x: 0.0000020042066, y: -0.7071067, z: 0.7071069, w: 0.0000018998983}
-  m_LocalPosition: {x: 0, y: -1.15, z: 0}
+  m_LocalPosition: {x: -0, y: 0.047, z: -0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -556,6 +556,10 @@ PrefabInstance:
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: 8f98eff09be6d804085186466bb20f36, type: 2}
+    - target: {fileID: -5754084199372789682, guid: 6a7872d39a9b080499e559cda2233ea5, type: 3}
+      propertyPath: m_Mesh
+      value: 
+      objectReference: {fileID: 4898376589914736847, guid: 54f4a216990b9af46b33310d78d47922, type: 3}
     - target: {fileID: 919132149155446097, guid: 6a7872d39a9b080499e559cda2233ea5, type: 3}
       propertyPath: m_Name
       value: KnifeMesh
